@@ -1,0 +1,4 @@
+project_id = "lreigznkrymufrifaxow"
+
+[functions.send-challan-email]
+verify_jwt = false
