@@ -16,6 +16,9 @@ interface Detection {
   confidence: number;            // 0-100
   bbox: { x1: number; y1: number; x2: number; y2: number };
   cropped_image: string | null;  // base64 JPEG — used as evidence image
+  force_save?: boolean;
+  evidence_image: string;
+
 }
 
 interface DetectionResponse {
@@ -41,6 +44,15 @@ export default function Monitoring() {
   const [recentViolations, setRecentViolations] = useState<Detection[]>([]);
 
   const mainVideoRef = useRef<HTMLVideoElement>(null);
+  const lastRedLightSaveRef = useRef<number>(0);
+  const DUMMY_PLATES = ["LER-8600", "ALS-1234", "LHE-987", "RWP-222", "JHE-2345", "XYZ-789"];
+  const plateIndexRef = useRef<number>(0);
+
+  const getNextPlate = () => {
+    const plate = DUMMY_PLATES[plateIndexRef.current % DUMMY_PLATES.length];
+    plateIndexRef.current += 1;
+    return plate;
+  };
 
   // ── DB queries ──────────────────────────────────────────────────────────────
 
@@ -139,14 +151,15 @@ export default function Monitoring() {
 
     // Upload the cropped evidence image first
     let imageUrl: string | null = null;
-    if (detection.cropped_image) {
-      imageUrl = await uploadEvidenceImage(detection.cropped_image, tempId);
+    const imageData = detection.evidence_image || detection.cropped_image;
+    if (imageData) {
+      imageUrl = await uploadEvidenceImage(imageData, tempId);
     }
 
     // Insert violation row
     const { error } = await supabase.from("violations").insert({
       violation_type: detection.violation_type,
-      vehicle_number: "",
+      vehicle_number: getNextPlate(),
       location:       cameraLocation,
       timestamp:      timestamp,
       status:         "pending",
@@ -193,6 +206,7 @@ export default function Monitoring() {
 
     const formData = new FormData();
     formData.append("file", blob, "frame.jpg");
+    formData.append("camera_id", selectedCamera.feed_url ?? "");
 
     try {
       const response = await fetch("http://127.0.0.1:8000/detect", {
@@ -213,9 +227,20 @@ export default function Monitoring() {
       setLastDetectionTime(new Date().toLocaleTimeString());
 
       // ── Filter detections above confidence threshold ──────────────────────
-      const qualifyingDetections = data.detections.filter(
-        d => d.confidence >= CONFIDENCE_THRESHOLD
-      );
+      const now = Date.now();
+
+      const qualifyingDetections = data.detections.filter(d => {
+        if (d.force_save === true) {
+          if (now - lastRedLightSaveRef.current < 4000) return false;
+          return d.confidence >= 85;  // 85% threshold for red light
+        }
+        return d.confidence >= CONFIDENCE_THRESHOLD;
+      });
+
+      // If any red light violation qualified, update the timestamp
+      if (qualifyingDetections.some(d => d.force_save === true)) {
+        lastRedLightSaveRef.current = now;
+      }
 
       if (qualifyingDetections.length > 0) {
         setRecentViolations(qualifyingDetections);
@@ -419,23 +444,6 @@ export default function Monitoring() {
               </div>
             )}
 
-            {/* Info bar */}
-            <div className="mt-4 p-4 bg-muted rounded-lg">
-              <h3 className="font-semibold mb-1">Detection Information</h3>
-              <p className="text-sm text-muted-foreground">
-                Frames are analyzed every 2 seconds. Detections with ≥{CONFIDENCE_THRESHOLD}% confidence
-                are automatically saved to the Violations tab.
-              </p>
-            </div>
-
-            <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1">
-                Verify Detection
-              </Button>
-              <Button variant="destructive" className="flex-1">
-                Mark as False Positive
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
