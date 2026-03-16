@@ -1,13 +1,8 @@
-import { ReactNode } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 
-interface AdminRouteProps {
-  children: ReactNode;
-}
-
-export const AdminRoute = ({ children }: AdminRouteProps) => {
+export const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
 
@@ -23,5 +18,5 @@ export const AdminRoute = ({ children }: AdminRouteProps) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <>{children}</>;
+  return children ? <>{children}</> : <Outlet />;
 };

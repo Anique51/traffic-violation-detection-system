@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { AppLayout } from "./components/layout/AppLayout";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
+import Login from "./pages/Login";
 
 import Dashboard from "./pages/Dashboard";
 import Monitoring from "./pages/Monitoring";
@@ -29,11 +32,18 @@ const App = () => (
         <AuthProvider>
           <Routes>
 
+            {/* Public route */}
+            <Route path="/login" element={<Login />} />
+
             {/* Default route */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-            {/* 🚀 App opens directly — login bypassed */}
-            <Route element={<AppLayout />}>
+            {/* Protected routes — requires login */}
+            <Route element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/monitoring" element={<Monitoring />} />
               <Route path="/violations" element={<Violations />} />
@@ -42,8 +52,14 @@ const App = () => (
               <Route path="/reports" element={<Reports />} />
               <Route path="/map" element={<MapView />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/users" element={<Users />} />
               <Route path="/help" element={<Help />} />
+
+              {/* Admin only */}
+              <Route path="/users" element={
+                <AdminRoute>
+                  <Users />
+                </AdminRoute>
+              } />
             </Route>
 
             <Route path="*" element={<NotFound />} />
