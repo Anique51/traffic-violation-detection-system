@@ -161,8 +161,10 @@ export default function Violations() {
       vehicleColor:     owner?.vehicle_color || 'N/A',
       chassisNo:        owner?.chassis_no    || 'N/A',
       engineNo:         owner?.engine_no     || 'N/A',
+      evidenceImageUrl:  challan.evidence_image_url ?? null
     };
 
+    console.log("Sending evidenceImageUrl:", emailChallanData.evidenceImageUrl);
     const response = await fetch(`${SUPABASE_URL}/functions/v1/send-challan-email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

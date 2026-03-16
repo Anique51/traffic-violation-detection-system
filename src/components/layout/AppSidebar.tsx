@@ -35,7 +35,6 @@ const menuItems = [
   { title: "Add Violation", url: "/add-violation", icon: PlusCircle },
   { title: "Vehicle History", url: "/vehicle-history", icon: Search },
   { title: "Reports & Stats", url: "/reports", icon: BarChart3 },
-  { title: "Map View", url: "/map", icon: Map },
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "Help", url: "/help", icon: HelpCircle },
 ];

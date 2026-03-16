@@ -27,6 +27,7 @@ interface ChallanData {
   vehicleColor: string;
   chassisNo: string;
   engineNo: string;
+  evidenceImageUrl?: string | null;
 }
 
 interface ChallanEmailRequest {
@@ -90,7 +91,8 @@ function toUrlSafeBase64(str: string): string {
     .replace(/=+$/, "");
 }
 
-function generateChallanHtml(data: ChallanData): string {
+function generateChallanHtml(data: ChallanData & { evidenceImageUrl?: string }): string {
+  
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -334,6 +336,16 @@ function generateChallanHtml(data: ChallanData): string {
       </div>
     </div>
 
+    <div class="section">
+      <div class="section-title">EVIDENCE</div>
+      <div style="background: #f5f5f5; padding: 10px; text-align: center; min-height: 150px; display: flex; align-items: center; justify-content: center;">
+        ${data.evidenceImageUrl
+          ? `<img src="${data.evidenceImageUrl}" alt="Violation Evidence" style="max-height: 200px; max-width: 100%; object-fit: contain;" />`
+          : `<p style="color: #999; font-size: 12px;">No evidence image available</p>`
+        }
+      </div>
+    </div>
+
     <div class="bottom-boxes">
       <div class="bottom-box">
         <div class="bottom-box-title">BANK DEPOSIT SLIP</div>
@@ -412,6 +424,7 @@ serve(async (req: Request): Promise<Response> => {
     violationId = vId;
 
     console.log(`Processing challan email for ticket: ${ticketNo} to: ${recipientEmail}`);
+    console.log("evidenceImageUrl received:", challanData.evidenceImageUrl);
 
     if (!recipientEmail || !ticketNo || !challanData) {
       throw new Error("Missing required fields: recipientEmail, ticketNo, or challanData");
@@ -422,7 +435,28 @@ serve(async (req: Request): Promise<Response> => {
     console.log("Access token obtained successfully");
 
     // Generate full challan HTML
-    const challanHtml = generateChallanHtml(challanData);
+    // Fetch evidence image and convert to base64 for embedding in HTML
+    let embeddedImageSrc = '';
+    if (challanData.evidenceImageUrl) {
+      try {
+        console.log("Fetching evidence image from:", challanData.evidenceImageUrl);
+        const imgResponse = await fetch(challanData.evidenceImageUrl);
+        console.log("Image fetch status:", imgResponse.status);
+        if (imgResponse.ok) {
+          const imgBuffer = await imgResponse.arrayBuffer();
+          console.log("Image buffer size:", imgBuffer.byteLength);
+          const imgBase64 = bytesToBase64(new Uint8Array(imgBuffer));
+          console.log("Base64 length:", imgBase64.length);
+          embeddedImageSrc = `data:image/jpeg;base64,${imgBase64}`;
+        } else {
+          console.error("Image fetch failed:", await imgResponse.text());
+        }
+      } catch (e) {
+        console.error("Failed to fetch evidence image:", e);
+      }
+    } else {
+      console.log("No evidenceImageUrl provided — skipping image embed");
+    }
     console.log("Challan HTML generated successfully");
 
     // Create email with attachment
