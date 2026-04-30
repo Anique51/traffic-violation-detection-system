@@ -22,8 +22,6 @@ It provides a **complete workflow** from detection → verification → notifica
 
 ---
 
-## 🎥 Demo Video
-
 
 
 ## 🎯 Key Features
@@ -271,13 +269,3 @@ Supports:
 - Encrypted data handling
 - Audit logs for all actions
 - Account lock after failed attempts
-
----
-
-## 📦 Installation
-
-```bash
-git clone https://github.com/your-username/traffic-violation-system.git
-cd traffic-violation-system
-pip install -r requirements.txt
-python main.py
