@@ -22,6 +22,10 @@ It provides a **complete workflow** from detection → verification → notifica
 
 ---
 
+## 🎥 Demo Video
+
+
+
 ## 🎯 Key Features
 
 - 📡 Live Traffic Monitoring with AI Detection  
