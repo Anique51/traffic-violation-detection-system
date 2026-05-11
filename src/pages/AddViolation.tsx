@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -25,28 +26,30 @@ export default function AddViolation() {
   const [violationType, setViolationType] = useState("");
   const [location, setLocation] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [fineAmount, setFineAmount] = useState<number>(0);
   const [penaltyPoints, setPenaltyPoints] = useState<number>(0);
 
-  // Fetch violation types
   const { data: violationTypes = [] } = useQuery({
     queryKey: ['violation-types'],
     queryFn: getViolationTypes,
   });
 
-  // Create violation mutation
   const createMutation = useMutation({
     mutationFn: createViolation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['violations'] });
       toast.success("Violation added successfully!");
-      // Reset form
       setVehicleNumber("");
       setViolationType("");
       setLocation("");
       setRemarks("");
       setFineAmount(0);
       setPenaltyPoints(0);
+      setImageFile(null);
+      setImagePreview(null);
     },
     onError: (error) => {
       toast.error(`Failed to add violation: ${error.message}`);
@@ -62,9 +65,33 @@ export default function AddViolation() {
     }
   };
 
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const fileName = `violations/manual_${Date.now()}.jpg`;
+    const { error } = await supabase.storage
+      .from("evidence-images")
+      .upload(fileName, file, { contentType: file.type, upsert: false });
+    if (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+    const { data } = supabase.storage.from("evidence-images").getPublicUrl(fileName);
+    return data?.publicUrl || null;
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!vehicleNumber || !violationType || !location) {
       toast.error("Please fill in all required fields");
       return;
@@ -75,8 +102,17 @@ export default function AddViolation() {
       return;
     }
 
+    setIsUploading(true);
+    let imageUrl: string | null = null;
+    if (imageFile) {
+      imageUrl = await uploadImage(imageFile);
+      if (!imageUrl) toast.warning("Image upload failed — violation saved without image");
+    }
+    setIsUploading(false);
+
     await createMutation.mutateAsync({
       vehicle_number: vehicleNumber,
+      image_url: imageUrl,
       violation_type: violationType,
       location: location,
       fine_amount: fineAmount,
@@ -147,23 +183,41 @@ export default function AddViolation() {
               />
             </div>
 
+            {/* ── Working image uploader ── */}
             <div className="space-y-2">
               <Label htmlFor="snapshot">Upload Snapshot</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer">
-                <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  PNG, JPG or GIF (max. 5MB)
-                </p>
-                <Input
-                  id="snapshot"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                />
-              </div>
+              <label htmlFor="snapshot" className="cursor-pointer block">
+                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary transition-colors">
+                  {imagePreview ? (
+                    <div className="space-y-3">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="max-h-48 mx-auto rounded-lg object-contain"
+                      />
+                      <p className="text-xs text-muted-foreground">{imageFile?.name}</p>
+                      <p className="text-xs text-primary">Click to change image</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Click to upload or drag and drop
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        PNG, JPG or GIF (max. 5MB)
+                      </p>
+                    </>
+                  )}
+                </div>
+              </label>
+              <Input
+                id="snapshot"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageChange}
+              />
             </div>
 
             <div className="space-y-2">
@@ -178,12 +232,12 @@ export default function AddViolation() {
             </div>
 
             <div className="flex gap-4">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="flex-1"
-                disabled={createMutation.isPending}
+                disabled={isUploading || createMutation.isPending}
               >
-                {createMutation.isPending ? "Submitting..." : "Submit Violation"}
+                {isUploading ? "Uploading image..." : createMutation.isPending ? "Submitting..." : "Submit Violation"}
               </Button>
               <Button
                 type="button"
@@ -195,6 +249,8 @@ export default function AddViolation() {
                   setLocation("");
                   setRemarks("");
                   setFineAmount(0);
+                  setImageFile(null);
+                  setImagePreview(null);
                 }}
               >
                 Reset Form

@@ -36,7 +36,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
 
             {/* Default route */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
             {/* Protected routes — requires login */}
             <Route element={

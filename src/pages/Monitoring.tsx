@@ -209,7 +209,7 @@ export default function Monitoring() {
     formData.append("camera_id", selectedCamera.feed_url ?? "");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/detect", {
+      const response = await fetch("https://anique51--traffic-violation-system-fastapi-app.modal.run/detect", {
         method: "POST",
         body: formData,
       });
